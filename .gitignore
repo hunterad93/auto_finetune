@@ -1,0 +1,39 @@
+# Data files
+*.jsonl
+*.json
+*.csv
+*.tsv
+*.xlsx
+*.xls
+
+# Environment files
+*.env
+.env
+.env.*
+
+# Other common data formats
+*.yaml
+*.yml
+*.xml
+*.parquet
+*.feather
+*.pickle
+*.pkl
+
+# Temporary or cache files
+*.tmp
+*.temp
+*.cache
+
+# Log files
+*.log
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Python-specific
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
