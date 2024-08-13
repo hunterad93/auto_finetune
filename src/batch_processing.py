@@ -1,3 +1,4 @@
+import shutil
 from typing import Dict, Any, List
 from pathlib import Path
 import time
@@ -34,66 +35,29 @@ def wait_for_batch_completion(batch_id: str, polling_interval: int = 60) -> Dict
         print(f"Batch status: {batch.status}. Waiting {polling_interval} seconds...")
         time.sleep(polling_interval)
 
-def process_batch_results(batch: Dict[str, Any], save_dir: str) -> List[Dict[str, Any]]:
-    """Retrieve and process batch results, saving them to a JSONL file."""
+def process_batch_results(batch_id: str, save_dir: Path) -> Path:
+    """
+    Retrieve the batch results file and save it to the specified directory.
+    Returns the path to the saved file.
+    """
     client = get_openai_client()
-    output_file_content = client.files.content(batch.output_file_id)
     
-    processed_data = []
-    for line in output_file_content.splitlines():
-        result = json.loads(line)
-        if result['response']['status_code'] == 200:
-            assistant_content = result['response']['body']['choices'][0]['message']['content']
-            data_point = {
-                "messages": [
-                    {"role": "system", "content": result['response']['body']['messages'][0]['content']},
-                    {"role": "user", "content": result['response']['body']['messages'][1]['content']},
-                    {"role": "assistant", "content": assistant_content}
-                ]
-            }
-            processed_data.append(data_point)
-        else:
-            print(f"Error in batch response for custom_id {result['custom_id']}: {result['response']['status_code']}")
-
-    project_root = Path(__file__).parent.parent
-    full_save_dir = project_root / save_dir
-    output_file_path = full_save_dir / "processed_responses.jsonl"
+    # Retrieve the batch to get the output file ID
+    batch_info = client.batches.retrieve(batch_id)
+    output_file_id = batch_info.output_file_id
     
-    with open(output_file_path, 'w') as f:
-        for item in processed_data:
-            json.dump(item, f)
-            f.write('\n')
+    # Ensure the save directory exists
+    save_dir.mkdir(parents=True, exist_ok=True)
     
-    print(f"Processed and saved {len(processed_data)} responses to {output_file_path}")
-
-    return processed_data
-
-# Example usage
-if __name__ == "__main__":
-    from src.batch_preparation import prepare_batch_file
-    from pydantic import BaseModel
-
-    class ExampleResponseModel(BaseModel):
-        content: str
-
-    prompts = ["What's the capital of France?", "Who wrote 'Romeo and Juliet'?"]
-    system_message = "You are a helpful assistant."
-    save_dir = "data/raw"
-
-    # Prepare batch file
-    batch_file_path = prepare_batch_file(
-        prompts=prompts,
-        response_model=ExampleResponseModel,
-        system_message=system_message,
-        save_dir=save_dir
-    )
-
-    # Upload batch file and create job
-    file_id = upload_batch_file(batch_file_path)
-    batch_id = create_batch_job(file_id)
-
-    # Wait for completion and process results
-    completed_batch = wait_for_batch_completion(batch_id)
-    processed_data = process_batch_results(completed_batch, save_dir)
-
-    print(f"Collected and processed {len(processed_data)} data points using batch API.")
+    # Define the output file path
+    output_file_path = save_dir / f"batch_output_{batch_id}.jsonl"
+    
+    # Download and save the file
+    response = client.files.content(output_file_id)
+    with open(output_file_path, 'wb') as f:
+        for chunk in response.iter_bytes():
+            f.write(chunk)
+    
+    print(f"Batch results saved to: {output_file_path}")
+    
+    return output_file_path

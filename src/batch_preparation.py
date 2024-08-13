@@ -26,7 +26,7 @@ def format_batch_request(
                     {"role": "user", "content": prompt}
                 ],
                 "max_tokens": max_tokens,
-                "response_format": response_format["json_schema"]
+                "response_format": response_format
             }
         }
         for i, prompt in enumerate(prompts, start=1)
@@ -51,20 +51,3 @@ def prepare_batch_file(
 
     print(f"Batch input file created at: {input_file_path}")
     return input_file_path
-
-# Example usage
-if __name__ == "__main__":
-    from pydantic import BaseModel
-
-    class ExampleResponseModel(BaseModel):
-        content: str
-
-    prompts = ["What's the capital of France?", "Who wrote 'Romeo and Juliet'?"]
-    system_message = "You are a helpful assistant."
-
-    prepare_batch_file(
-        prompts=prompts,
-        response_model=ExampleResponseModel,
-        system_message=system_message,
-        model="gpt-4o-2024-08-06"
-    )

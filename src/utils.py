@@ -13,25 +13,30 @@ def get_openai_client() -> OpenAI:
     return OpenAI(api_key=api_key)
 
 def pydantic_to_json_schema(model: Type[BaseModel]) -> Dict[str, Any]:
-    """Convert a Pydantic model to a JSON schema."""
-    schema = model.schema()
-    # Ensure additionalProperties is set to false per structured output API requirements
-    schema["additionalProperties"] = False
+    """Convert a Pydantic model to a JSON schema for OpenAI's structured API."""
+    schema = model.model_json_schema()
     return {
         "type": "json_schema",
         "json_schema": {
             "name": model.__name__,
-            "schema": schema,
+            "schema": {
+                "type": "object",
+                "properties": schema.get("properties", {}),
+                "required": schema.get("required", []),
+                "additionalProperties": False
+            },
             "strict": True
         }
     }
 
 def save_to_jsonl(data: List[Dict[str, Any]], filepath: str):
     """Save data to a JSONL file."""
+    # Create the directory if it doesn't exist
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    
     with open(filepath, 'w') as f:
         for item in data:
-            json.dump(item, f)
-            f.write('\n')
+            f.write(json.dumps(item) + '\n')
 
 def call_openai_api(
     messages: list,
