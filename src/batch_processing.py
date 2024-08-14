@@ -1,5 +1,5 @@
 import shutil
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from pathlib import Path
 import time
 import json
@@ -29,13 +29,14 @@ def wait_for_batch_completion(batch_id: str, polling_interval: int = 60) -> Dict
     while True:
         batch = client.batches.retrieve(batch_id)
         if batch.status == "completed":
+            print(f"Batch job {batch_id} completed")
             return batch
         elif batch.status in ["failed", "expired", "cancelled"]:
             raise Exception(f"Batch job {batch_id} {batch.status}")
         print(f"Batch status: {batch.status}. Waiting {polling_interval} seconds...")
         time.sleep(polling_interval)
 
-def process_batch_results(batch_id: str, save_dir: Path) -> Path:
+def process_batch_results(batch_id: str, save_dir: Path, filename_prefix: Optional[str] = None) -> Path:
     """
     Retrieve the batch results file and save it to the specified directory.
     Returns the path to the saved file.
@@ -50,7 +51,10 @@ def process_batch_results(batch_id: str, save_dir: Path) -> Path:
     save_dir.mkdir(parents=True, exist_ok=True)
     
     # Define the output file path
-    output_file_path = save_dir / f"batch_output_{batch_id}.jsonl"
+    if filename_prefix:
+        output_file_path = save_dir / f"{filename_prefix}_{batch_id}.jsonl"
+    else:
+        output_file_path = save_dir / f"{batch_id}.jsonl"
     
     # Download and save the file
     response = client.files.content(output_file_id)

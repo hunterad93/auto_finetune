@@ -8,7 +8,7 @@ def format_batch_request(
     system_message: str,
     response_model: Type[BaseModel],
     model: str,
-    max_tokens: int = 2000
+    max_tokens: int
 ) -> List[Dict[str, Any]]:
     """
     Format requests for the batch API input file.
@@ -36,17 +36,16 @@ def prepare_batch_file(
     prompts: List[str],
     response_model: Type[BaseModel],
     system_message: str,
-    model: str = "gpt-4o-2024-08-06",
-    max_tokens: int = 2000,
-    save_dir: str = "data/raw/batch_inputs"
+    model: str,
+    max_tokens: int,
+    save_dir: Path,
+    filename_prefix: str
 ) -> Path:
     """Prepare batch request file and return its path."""
-    project_root = Path(__file__).parent.parent
-    full_save_dir = project_root / save_dir
-    full_save_dir.mkdir(parents=True, exist_ok=True)
+    save_dir.mkdir(parents=True, exist_ok=True)
 
     batch_requests = format_batch_request(prompts, system_message, response_model, model, max_tokens)
-    input_file_path = full_save_dir / "batch_input.jsonl"
+    input_file_path = save_dir / f"{filename_prefix}_batch_input.jsonl"
     save_to_jsonl(batch_requests, str(input_file_path))
 
     print(f"Batch input file created at: {input_file_path}")

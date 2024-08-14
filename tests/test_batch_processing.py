@@ -6,29 +6,34 @@ from src.batch_processing import upload_batch_file, create_batch_job, wait_for_b
 from src.batch_preparation import prepare_batch_file
 from pydantic import BaseModel
 import time
+from tests.testing_prompts import PROMPTS, SYSTEM_PROMPT
 
 class ExampleResponseModel(BaseModel):
     content: str
 
 @pytest.fixture(scope="module")
-def batch_output_file(request):
+def batch_files():
+    # Define paths
+    input_file = Path("data/raw/batch_inputs/example_input.jsonl")
+    output_file = Path("data/raw/batch_outputs/example_output.jsonl")
+    
     # Prepare a batch file
-    prompts = [
-        "What is the capital of France?",
-        "Who wrote Romeo and Juliet?"
-    ]
-    system_message = "You are a helpful assistant."
+    prompts = PROMPTS
+    system_message = SYSTEM_PROMPT
     batch_file = prepare_batch_file(
         prompts=prompts,
         response_model=ExampleResponseModel,
         system_message=system_message,
         model="gpt-4o-2024-08-06",
         max_tokens=2000,
-        save_dir="data/raw/batch_inputs"
+        save_dir=str(input_file.parent)
     )
+    
+    # Rename the batch file to example_input.jsonl
+    os.rename(batch_file, input_file)
 
     # Upload the batch file
-    file_id = upload_batch_file(batch_file)
+    file_id = upload_batch_file(input_file)
     assert file_id is not None
     print(f"Uploaded batch file. File ID: {file_id}")
 
@@ -43,35 +48,35 @@ def batch_output_file(request):
     print("Batch job completed successfully.")
 
     # Process batch results
-    output_dir = Path("data/raw/batch_outputs")
-    output_file = process_batch_results(completed_batch.id, output_dir)
+    processed_output_file = process_batch_results(completed_batch.id, output_file.parent)
     
-    def finalizer():
-        print(f"Cleaning up test files...")
-        if os.path.exists(batch_file):
-            os.remove(batch_file)
-        if os.path.exists(output_file):
-            os.remove(output_file)
+    # Rename the output file to example_output.jsonl
+    os.rename(processed_output_file, output_file)
     
-    request.addfinalizer(finalizer)
-    
-    return output_file
+    return input_file, output_file
 
-def test_full_batch_processing_workflow(batch_output_file):
-    assert batch_output_file.exists()
-    assert batch_output_file.stat().st_size > 0  # Check that the file is not empty
+def test_full_batch_processing_workflow(batch_files):
+    input_file, output_file = batch_files
+    assert input_file.exists()
+    assert output_file.exists()
+    assert input_file.stat().st_size > 0
+    assert output_file.stat().st_size > 0
 
-    # Examine the output file
-    print(f"\nExamining output file: {batch_output_file}")
-    with open(batch_output_file, 'r') as f:
+    print(f"\nExamining input file: {input_file}")
+    with open(input_file, 'r') as f:
+        input_content = f.read()
+        print(input_content)
+
+    print(f"\nExamining output file: {output_file}")
+    with open(output_file, 'r') as f:
         output_content = f.read()
         print(output_content)
 
     print("Full batch processing workflow completed successfully.")
 
-def test_validate_batch_output(batch_output_file):
-    # Read and validate the output
-    with open(batch_output_file, 'r') as f:
+def test_validate_batch_output(batch_files):
+    _, output_file = batch_files
+    with open(output_file, 'r') as f:
         for line in f:
             result = json.loads(line)
             assert 'custom_id' in result
@@ -84,8 +89,7 @@ def test_validate_batch_output(batch_output_file):
             assert 'message' in result['response']['body']['choices'][0]
             assert 'content' in result['response']['body']['choices'][0]['message']
             
-            # Validate content based on TestResponseModel
             content = result['response']['body']['choices'][0]['message']['content']
-            ExampleResponseModel(content=content)  # This will raise a validation error if content is invalid
+            ExampleResponseModel(content=content)
     
     print("Batch output validation completed successfully.")

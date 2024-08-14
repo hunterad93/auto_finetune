@@ -1,27 +1,34 @@
 import json
+import random
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 
 def prepare_finetuning_data(
     batch_input_path: Path,
     batch_output_path: Path,
-    output_dir: Path = Path("data/processed/finetuningJSONLs"),
-    output_filename: str = None
-) -> Path:
+    output_dir: Path,
+    output_filename_prefix: str
+) -> Tuple[Path, Path]:
     """
-    Prepare fine-tuning data by combining batch inputs and outputs.
+    Prepare fine-tuning data by combining batch inputs and outputs and creating an 80/20 train-test split.
     
     Args:
     batch_input_path: Path to the batch input JSONL file
     batch_output_path: Path to the batch output JSONL file
-    output_dir: Directory to save the fine-tuning JSONL file
-    output_filename: Optional filename for the output file
+    output_dir: Directory to save the fine-tuning JSONL files
+    output_filename_prefix: Optional prefix for the output filenames
     
     Returns:
-    Path to the created fine-tuning JSONL file
+    Tuple of Paths to the created training and testing JSONL files
     """
     # Ensure output directory exists
     output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Create train and test subdirectories
+    train_dir = output_dir / "train"
+    test_dir = output_dir / "test"
+    train_dir.mkdir(parents=True, exist_ok=True)
+    test_dir.mkdir(parents=True, exist_ok=True)
     
     # Read batch input and output
     with open(batch_input_path, 'r') as f_in, open(batch_output_path, 'r') as f_out:
@@ -47,18 +54,38 @@ def prepare_finetuning_data(
         }
         finetuning_data.append(finetuning_item)
     
-    # Save fine-tuning data
-    if output_filename:
-        output_file = output_dir / output_filename
-    else:
-        output_file = output_dir / f"finetuning_data_{batch_input_path.stem}.jsonl"
+    # Shuffle the data
+    random.shuffle(finetuning_data)
     
-    with open(output_file, 'w') as f:
-        for item in finetuning_data:
+    # Calculate the split index
+    split_index = int(len(finetuning_data) * 0.8)
+    
+    # Split the data
+    train_data = finetuning_data[:split_index]
+    test_data = finetuning_data[split_index:]
+    
+    # Prepare filenames
+    if output_filename_prefix:
+        train_file = train_dir / f"{output_filename_prefix}_train.jsonl"
+        test_file = test_dir / f"{output_filename_prefix}_test.jsonl"
+    else:
+        train_file = train_dir / f"finetuning_train_{batch_input_path.stem}.jsonl"
+        test_file = test_dir / f"finetuning_test_{batch_input_path.stem}.jsonl"
+    
+    # Save training data
+    with open(train_file, 'w') as f:
+        for item in train_data:
             f.write(json.dumps(item) + '\n')
     
-    print(f"Fine-tuning data saved to: {output_file}")
-    return output_file
+    # Save testing data
+    with open(test_file, 'w') as f:
+        for item in test_data:
+            f.write(json.dumps(item) + '\n')
+    
+    print(f"Training data saved to: {train_file}")
+    print(f"Testing data saved to: {test_file}")
+    return train_file, test_file
+
 
 def validate_finetuning_data(file_path: Path) -> bool:
     """
