@@ -46,3 +46,11 @@ This pipeline is specifically designed for fine-tuning models to produce structu
 
 This pipeline is designed to work with OpenAI's API and the recently released GPT-4o and GPT-4o-mini models. Make sure to update the model names and API endpoints if they change in the future.
 
+
+#TODO
+- Get batch eval working by changing input ids
+- Extract values into df where rows are key_id and columns are llm
+- One df for numeric values one df for string
+- Add columns that represent vector distance or actual between teacher and base, teacher and finetuned
+- Measure average distances
+- Finetuned and base model scores are compared against teacher for numeric distance and vector distance
